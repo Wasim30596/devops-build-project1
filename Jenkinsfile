@@ -20,12 +20,14 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+
                 echo "Branch: ${env.GIT_BRANCH}"
             }
         }
 
         stage('Build Docker Image') {
             steps {
+
                 script {
 
                     def shortHash = sh(
@@ -33,7 +35,7 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    // PROD branch detection
+                    // Branch-based repo selection
                     if (
                         env.GIT_BRANCH == 'origin/main' ||
                         env.GIT_BRANCH == 'main' ||
@@ -52,15 +54,16 @@ pipeline {
 
                     env.FULL_IMAGE = "${env.DOCKER_REPO}:${env.IMAGE_TAG}"
 
-                    echo "Using Docker Repo: ${env.DOCKER_REPO}"
-                    echo "Using Image Tag : ${env.IMAGE_TAG}"
+                    echo "Docker Repo : ${env.DOCKER_REPO}"
+                    echo "Image Tag   : ${env.IMAGE_TAG}"
+                    echo "Full Image  : ${env.FULL_IMAGE}"
                 }
 
                 sh """
                     docker build \
                         -t ${IMAGE_NAME}:latest \
-                        -t ${env.FULL_IMAGE} \
-                        -t ${env.DOCKER_REPO}:latest \
+                        -t ${FULL_IMAGE} \
+                        -t ${DOCKER_REPO}:latest \
                         .
                 """
             }
@@ -69,41 +72,30 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
 
-                withCredentials([
-                    string(credentialsId: 'dockerhub-token', variable: 'DOCKER_TOKEN'),
-                    string(credentialsId: 'dockerhub-username', variable: 'DOCKER_USER')
-                ]) {
+                sh """
+                    echo "${DOCKERHUB_TOKEN}" | docker login \
+                        -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-                    sh '''
-                        echo "$DOCKER_TOKEN" | docker login \
-                            -u "$DOCKER_USER" --password-stdin
+                    docker push ${FULL_IMAGE}
 
-                        docker push '"${FULL_IMAGE}"'
-                        docker push '"${DOCKER_REPO}"':latest
+                    docker push ${DOCKER_REPO}:latest
 
-                        docker logout
-                    '''
-                }
+                    docker logout
+                """
             }
         }
 
         stage('Deploy') {
             steps {
 
-                withCredentials([
-                    string(credentialsId: 'dockerhub-token', variable: 'DOCKER_TOKEN'),
-                    string(credentialsId: 'dockerhub-username', variable: 'DOCKER_USER')
-                ]) {
+                sh """
+                    export DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
+                    export DOCKERHUB_TOKEN=${DOCKERHUB_TOKEN}
 
-                    sh '''
-                        export DOCKERHUB_USERNAME=$DOCKER_USER
-                        export DOCKERHUB_TOKEN=$DOCKER_TOKEN
+                    chmod +x deploy.sh
 
-                        chmod +x deploy.sh
-
-                        ./deploy.sh
-                    '''
-                }
+                    ./deploy.sh
+                """
             }
         }
     }
@@ -117,6 +109,9 @@ pipeline {
         failure {
             echo "❌ Pipeline failed."
         }
+
+        always {
+            cleanWs()
+        }
     }
-    
 }
