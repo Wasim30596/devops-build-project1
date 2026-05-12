@@ -1,7 +1,4 @@
-# .gitignore
-node_modules/
-build/
+node_modules
+.git
 .env
-.env.local
-npm-debug.log*
-.DS_Store
+npm-debug.log
