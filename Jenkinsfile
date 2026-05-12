@@ -29,7 +29,7 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    if (env.GIT_BRANCH == 'origin/master' || env.GIT_BRANCH == 'master') {
+                    if (env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main') {
                         env.IMAGE_TAG   = "prod-${shortHash}"
                         env.DOCKER_REPO = env.PROD_REPO
                     } else {
@@ -39,6 +39,8 @@ pipeline {
                     env.FULL_IMAGE = "${env.DOCKER_REPO}:${env.IMAGE_TAG}"
                 }
                 sh """
+                    chmod +x build.sh
+                    export DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
                     docker build \
                         -t ${IMAGE_NAME}:latest \
                         -t ${env.FULL_IMAGE} \
@@ -78,9 +80,6 @@ pipeline {
         }
         failure {
             echo "❌ Pipeline failed."
-        }
-        always {
-            sh 'docker logout || true'
         }
     }
 }
