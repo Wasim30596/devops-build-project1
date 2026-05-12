@@ -9,15 +9,12 @@ services:
     restart: unless-stopped
 
   nginx-exporter:
-    image: nginx/nginx-prometheus-exporter:latest
-    container_name: nginx-exporter
-    ports:
-      - "9113:9113"
-    command:
-      - --nginx.scrape-uri=http://react-app:80/stub_status
-    depends_on:
-      - react-app
-    restart: unless-stopped
+  image: nginx/nginx-prometheus-exporter:latest
+  container_name: nginx-exporter
+  network_mode: "host"
+  command:
+    - --nginx.scrape-uri=http://127.0.0.1/stub_status
+  restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
